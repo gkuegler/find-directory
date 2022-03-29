@@ -3,15 +3,15 @@
 
 #include <filesystem>
 #include <regex>
-// wxWidgets in full of strcpy
-#pragma warning(disable : 4996)
-#include <wx/textdlg.h>
-#include <wx/wx.h>
 
-//#include <locale>
+// wxWidgets is full of strcpy
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#include <wx/wx.h>
+#pragma warning(pop)
 
 const constexpr int appwidth = 500;
-const constexpr int appheight = 100;
+const constexpr int appheight = 800;
 
 wxPoint GetOrigin(const int w, const int h) {
   int desktopWidth = GetSystemMetrics(SM_CXMAXIMIZED);
@@ -20,20 +20,68 @@ wxPoint GetOrigin(const int w, const int h) {
 }
 
 class cFrame : public wxFrame {
+  wxTextCtrl* directory_entry;
+  wxTextCtrl* regex_entry;
+  wxCheckBox* recursive_checkbox;
+  wxTextCtrl* search_results;
+
  public:
   cFrame()
       : wxFrame(nullptr, wxID_ANY, "Example Title",
                 GetOrigin(appwidth, appheight), wxSize(appwidth, appheight)) {
     auto panel = new wxPanel(this, wxID_ANY);
+    auto regex_entry_label = new wxStaticText(panel, wxID_ANY, "pattern:");
+    auto directory_entry_label =
+        new wxStaticText(panel, wxID_ANY, "directory:");
+    regex_entry = new wxTextCtrl(panel, wxID_ANY, "", wxDefaultPosition,
+                                 wxDefaultSize, wxTE_PROCESS_ENTER);
+    directory_entry = new wxTextCtrl(panel, wxID_ANY, "L:\\", wxDefaultPosition,
+                                     wxDefaultSize, wxTE_PROCESS_ENTER);
+    recursive_checkbox =
+        new wxCheckBox(panel, wxID_ANY, "recursively search child directories");
+    search_results = new wxTextCtrl(panel, wxID_ANY, "", wxDefaultPosition,
+                                    wxDefaultSize, wxTE_RICH | wxTE_MULTILINE);
+    auto search_button = new wxButton(panel, wxID_ANY, "Search");
 
+    // Layout Controls
     auto* top = new wxBoxSizer(wxVERTICAL);
-
+    top->Add(regex_entry_label, 0, wxLEFT | wxRIGHT | wxTOP, 5);
+    top->Add(regex_entry, 0, wxEXPAND | wxALL, 5);
+    top->Add(directory_entry_label, 0, wxLEFT | wxRIGHT | wxTOP, 5);
+    top->Add(directory_entry, 0, wxEXPAND | wxALL, 5);
+    top->Add(recursive_checkbox, 0, wxEXPAND | wxALL, 5);
+    top->Add(search_button, 0, wxEXPAND | wxALL, 5);
+    top->Add(search_results, 1, wxEXPAND | wxALL, 5);
     panel->SetSizer(top);
 
-    // Fit not required for panel to expand to frame
-    panel->GetSizer()->Fit(this);
-    panel->Fit();
-  };
+    // Bind Events
+    search_button->Bind(wxEVT_BUTTON, &cFrame::OnSearch, this);
+    regex_entry->Bind(wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
+    directory_entry->Bind(wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
+  }
+  void OnSearch(wxCommandEvent& event) {
+    search_results->SetValue("");  // clear previous search results
+    spdlog::trace("on search is entering");
+    auto text = std::string(regex_entry->GetLineText(0).mb_str());
+    auto path = std::string(directory_entry->GetLineText(0).mb_str());
+
+    try {
+      for (auto const& entry : std::filesystem::directory_iterator{path}) {
+        std::string path = entry.path().u8string();
+        std::regex r(text, std::regex_constants::icase);
+        std::smatch m;
+        if (std::regex_search(path, m, r)) {
+          spdlog::info("{}", path);
+          search_results->AppendText(path + std::string("\n"));
+        }
+      }
+    } catch (std::filesystem::filesystem_error& e) {
+      wxLogError("%s", e.what());
+    } catch (std::regex_error& e) {
+      wxLogError("%s", e.what());
+    }
+    spdlog::trace("on search is exiting");
+  }
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -47,33 +95,20 @@ class cApp : public wxApp {
   ~cApp(){};
 
   virtual bool OnInit() {
-    /*frame_ = new cFrame();
-    frame_->Show();*/
-    auto logger = spdlog::basic_logger_mt("main", "log.txt", true);
+    auto logger =
+        spdlog::basic_logger_mt("main", "log-find-directory.txt", true);
+    logger->set_level(spdlog::level::trace);
     spdlog::set_default_logger(std::move(logger));
+    spdlog::flush_every(std::chrono::seconds(1));
     spdlog::info("this is a test");
-
-    wxTextEntryDialog dlg(nullptr, "Enter a regex string.");
-    if (dlg.ShowModal() != wxID_OK) {
-      return false;  // closes the application
-    }
-
-    auto text = std::string(dlg.GetValue().mb_str());
-    spdlog::info("value from dialogue -> {}", text);
-
-    const std::filesystem::path path{L"L:\\"};
-    for (auto const& entry : std::filesystem::directory_iterator{path}) {
-      std::string out = entry.path().u8string();
-      std::regex r(text, std::regex_constants::icase);
-      std::smatch m;
-      if (std::regex_search(out, m, r)) {
-        spdlog::info("{}", out);
-      }
-    }
-
-    return false;
+    frame_ = new cFrame();
+    frame_->Show();
+    return true;
   }
-  // virtual int OnExit();
+  virtual int OnExit() {
+    spdlog::get("main")->flush();
+    return 0;
+  };
 };
 
 wxIMPLEMENT_APP(cApp);
