@@ -27,7 +27,7 @@ class cFrame : public wxFrame {
 
  public:
   cFrame()
-      : wxFrame(nullptr, wxID_ANY, "Example Title",
+      : wxFrame(nullptr, wxID_ANY, "Find Directory With Regex",
                 GetOrigin(appwidth, appheight), wxSize(appwidth, appheight)) {
     auto panel = new wxPanel(this, wxID_ANY);
     auto regex_entry_label = new wxStaticText(panel, wxID_ANY, "pattern:");
@@ -58,6 +58,7 @@ class cFrame : public wxFrame {
     search_button->Bind(wxEVT_BUTTON, &cFrame::OnSearch, this);
     regex_entry->Bind(wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
     directory_entry->Bind(wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
+    recursive_checkbox->Bind(wxEVT_CHECKBOX, &cFrame::OnRecursive, this);
   }
   void OnSearch(wxCommandEvent& event) {
     search_results->SetValue("");  // clear previous search results
@@ -82,6 +83,10 @@ class cFrame : public wxFrame {
     }
     spdlog::trace("on search is exiting");
   }
+  void OnRecursive(wxCommandEvent& event) {
+    wxLogError("functionality not implemented yet");
+    recursive_checkbox->SetValue(false);
+  }
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -100,7 +105,7 @@ class cApp : public wxApp {
     logger->set_level(spdlog::level::trace);
     spdlog::set_default_logger(std::move(logger));
     spdlog::flush_every(std::chrono::seconds(1));
-    spdlog::info("this is a test");
+    spdlog::info("----- start of log file ------");
     frame_ = new cFrame();
     frame_->Show();
     return true;
