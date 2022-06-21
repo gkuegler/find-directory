@@ -150,6 +150,11 @@ class cFrame : public wxFrame {
     // clang-format on
   }
   void OnSearch(wxCommandEvent& event) {
+    // TODO: run this in another thread. the application will freeze and become
+    // unresponsive
+    // TODO: add a progress bar or something
+    // TODO: add a results label just like the one from Excel regex
+
     search_results->DeleteAllItems();
     SPDLOG_DEBUG("on search is entering");
 
