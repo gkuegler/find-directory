@@ -67,10 +67,10 @@ Strings GetFilePaths(std::string base_path, int depth) {
 //}
 
 std::string EscapeForRegularExpression(const std::string& s) {
-  // TODO: expand the replacement to all special characters
-  // const std::regex metacharacters("[\.\^\$\-\+\(\)\[\]\{\}\|\?\*]");
-  const std::regex metacharacters("[\.\$]");
-  // return std::regex_replace(s, metacharacters, "\\$&");
+  // Not all special regex characters are escaped
+  // missing: [], ?, |
+  // seems to have trouble escaping the []
+  const std::regex metacharacters("[\.\$\^\{\}\(\)\?\*\+\-]");
   try {
     return std::regex_replace(s, metacharacters, "\\$&");
   } catch (std::regex_error error) {
