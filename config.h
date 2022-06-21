@@ -1,16 +1,17 @@
 #ifndef FINDIR_CONFIG_H
 #define FINDIR_CONFIG_H
 
-//#include <fmt/format.h>
-
+#include <filesystem>
 #include <set>
 #include <string>
 #define TOML11_PRESERVE_COMMENTS_BY_DEFAULT
 #include <toml.hpp>
 #include <vector>
 
+#include "log.h"
 #include "types.h"
 
+const constexpr int MAXIMUM_FILE_PATH = 512;
 using StringsContainer = std::set<std::string>;
 
 // template <typename T, typename C>
@@ -20,6 +21,16 @@ StringsContainer MakeContainer(std::vector<toml::value> container) {
     out.insert(value.as_string());
   }
   return out;
+}
+
+std::string GetFullPath(std::string filename) {
+  char full_path[MAXIMUM_FILE_PATH];
+  auto result = GetModuleFileNameA(nullptr, full_path, MAXIMUM_FILE_PATH);
+  std::filesystem::path path(full_path);
+  auto file_path = path.parent_path().string() + "\\" + filename;
+  SPDLOG_DEBUG(full_path);
+  SPDLOG_DEBUG(file_path);
+  return file_path;
 }
 
 namespace config {
@@ -42,10 +53,10 @@ class Settings {
    *   - std::out_of_range - a table or value is not found
    */
   Settings(std::string filename) {
-    file_name_ = filename;
+    file_name_ = GetFullPath(filename);
 
     // Parse the main file
-    const auto data = toml::parse<toml::preserve_comments>(filename);
+    const auto data = toml::parse<toml::preserve_comments>(file_name_);
 
     use_text = toml::find<bool>(data, "use_text");
     use_recursion = toml::find<bool>(data, "use_recursion");
@@ -55,7 +66,7 @@ class Settings {
     auto &paths = toml::find(data, "bookmarks").as_array();
     bookmarks = MakeContainer(paths);
   }
-  Settings(){};
+  Settings() { file_name_ = GetFullPath(file_name_); }
 
   /**
    * Save current user data to disk.

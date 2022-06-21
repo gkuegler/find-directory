@@ -1,8 +1,8 @@
 use_text = false
-default_search_path = "C:\\Users\\georg\\OneDrive\\Python\\test folder"
-use_recursion = true
+default_search_path = ""
+use_recursion = false
 recursion_depth = 0
 bookmarks = [
-"C:\\Users\\georg\\OneDrive\\Python\\test folder",
+"c:\\",
 ]
 

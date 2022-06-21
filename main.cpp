@@ -1,6 +1,4 @@
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
-#include <spdlog/sinks/basic_file_sink.h>
-#include <spdlog/spdlog.h>
+
 
 #include <algorithm>
 #include <filesystem>
@@ -15,6 +13,7 @@
 #pragma warning(pop)
 
 #include "config.h"
+#include "log.h"
 #include "types.h"
 
 const constexpr int appwidth = 500;
@@ -286,22 +285,13 @@ class cApp : public wxApp {
     // It doesn't have file write permission when this application is started
     // from the working directory of natlink.
 
-#ifdef _DEBUG
-    auto logger =
-        spdlog::basic_logger_mt("main", "log-find-directory.txt", true);
-    logger->set_level(spdlog::level::trace);
-    spdlog::set_default_logger(std::move(logger));
-    spdlog::flush_every(std::chrono::seconds(1));
-    spdlog::info("----- start of log file ------");
-#endif
+    SetUpLogging();
     frame_ = new cFrame();
     frame_->Show();
     return true;
   }
   virtual int OnExit() {
-#ifdef _DEBUG
-    spdlog::get("main")->flush();
-#endif
+    void FlushLogging();
     return 0;
   }
 };
