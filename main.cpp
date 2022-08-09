@@ -1,13 +1,14 @@
 
-
 #include <algorithm>
 #include <filesystem>
 #include <regex>
 
-// wxWidgets is full of strcpy
+// wxWidgets is full of non-secure strcpy
 #pragma warning(push)
 #pragma warning(disable : 4996)
+#include <wx/activityindicator.h>
 #include <wx/listctrl.h>
+#include <wx/thread.h>
 #include <wx/valnum.h>
 #include <wx/wx.h>
 #pragma warning(pop)
@@ -31,19 +32,16 @@ template <typename T>
 wxArrayString BuildWxArrayString(const T container) {
   wxArrayString array;
   for (const auto& text : container) {
-    array.Add(wxString(text), 1);
+    array.Add(wxString(text), 1);  // 2nd param (1) is number_of_copies
   }
   return array;
 }
 
-// assumed depth should be >1
 Strings GetFilePaths(std::string base_path, int depth) {
   if (depth == 0) {
-    return {};  // return empty default
+    return {};  // return empty if depth exhausted
   }
-  // wxASSERT_MSG(depth > 1, "recursion depth should be greater than 1");
   Strings p;
-  // 1st level
   for (auto const& entry : std::filesystem::directory_iterator{base_path}) {
     if (entry.is_directory()) {
       auto folder = entry.path().generic_string();
@@ -56,6 +54,21 @@ Strings GetFilePaths(std::string base_path, int depth) {
   return p;
 }
 
+std::string EscapeForRegularExpression(const std::string& s) {
+  // Not all special regex characters are escaped
+  // missing: [], ?, |
+  // seems to have trouble escaping the []
+  const std::regex metacharacters("[\.\$\^\{\}\(\)\?\*\+\-]");
+  try {
+    return std::regex_replace(s, metacharacters, "\\$&");
+  } catch (std::regex_error error) {
+    // logging is thread safe as 2009
+    // https://wxwidgets.blogspot.com/2009/07/blogging-about-logging.html
+    wxLogError(error.what());
+    return "";
+  }
+}
+
 // used for directory_iterator and recursive_directory_iterator
 // template <class T>
 // Strings UnrollIterator(T iterator) {
@@ -66,20 +79,7 @@ Strings GetFilePaths(std::string base_path, int depth) {
 //  return s;
 //}
 
-std::string EscapeForRegularExpression(const std::string& s) {
-  // Not all special regex characters are escaped
-  // missing: [], ?, |
-  // seems to have trouble escaping the []
-  const std::regex metacharacters("[\.\$\^\{\}\(\)\?\*\+\-]");
-  try {
-    return std::regex_replace(s, metacharacters, "\\$&");
-  } catch (std::regex_error error) {
-    wxLogError(error.what());
-    return "";
-  }
-}
-
-class cFrame : public wxFrame {
+class cFrame : public wxFrame, public wxThreadHelper {
  private:
   wxComboBox* directory_path_entry;
   wxTextCtrl* regex_pattern_entry;
@@ -87,8 +87,17 @@ class cFrame : public wxFrame {
   wxCheckBox* recursive_checkbox;
   wxCheckBox* text_match_checkbox;
   wxListView* search_results;
-  int m_value_recursion_depth;
+  wxButton* search_button;
+  wxStaticText* results_counter_label;
+  // wxActivityIndicator* activity_indicator;
+
+  int m_value_recursion_depth;  // used for validator
+
+  std::string search_pattern_;
+  std::string search_directory_;
   std::shared_ptr<config::Settings> settings;
+
+  int search_results_index;
 
  public:
   cFrame()
@@ -97,7 +106,7 @@ class cFrame : public wxFrame {
     // clang-format off
       // Text Validator for recursion depth
       wxIntegerValidator<int> int_depth_validator(&m_value_recursion_depth);
-      int_depth_validator.SetRange(0, 10);
+      int_depth_validator.SetRange(0, 10000);
 
       auto result = config::LoadFromFile("settings.toml");
       if (!result.success){
@@ -114,11 +123,12 @@ class cFrame : public wxFrame {
       auto recursion_depth_label = new wxStaticText(panel, wxID_ANY, "0 = full recursion depth");
       regex_pattern_entry = new wxTextCtrl(panel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
       directory_path_entry = new wxComboBox(panel, wxID_ANY, settings->default_search_path, wxDefaultPosition, wxDefaultSize, bookmarks, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
-      recursive_depth = new wxTextCtrl(panel, wxID_ANY, "0", wxDefaultPosition, wxDefaultSize, 0, int_depth_validator);
-      recursive_checkbox = new wxCheckBox(panel, wxID_ANY, "recursively search child directories");
       text_match_checkbox = new wxCheckBox(panel, wxID_ANY, "text search");
+      recursive_checkbox = new wxCheckBox(panel, wxID_ANY, "recursively search child directories");
+      recursive_depth = new wxTextCtrl(panel, wxID_ANY, "0", wxDefaultPosition, wxDefaultSize, 0, int_depth_validator);
+      search_button = new wxButton(panel, wxID_ANY, "Search");
+      results_counter_label = new wxStaticText(panel, wxID_ANY, "");
       search_results = new wxListView(panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLC_LIST);
-      auto search_button = new wxButton(panel, wxID_ANY, "Search");
 
       //Set default values
       text_match_checkbox->SetValue(settings->use_text);
@@ -127,10 +137,10 @@ class cFrame : public wxFrame {
 
       // Layout Controls
       auto controls = new wxBoxSizer(wxHORIZONTAL);
-      controls->Add(text_match_checkbox, 0, wxRIGHT, 5);
-      controls->Add(recursive_checkbox, 0, wxRIGHT, 5);
+      controls->Add(text_match_checkbox, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+      controls->Add(recursive_checkbox, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
       controls->Add(recursive_depth, 1, wxRIGHT, 5);
-      controls->Add(recursion_depth_label, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
+      controls->Add(recursion_depth_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
 
       auto top = new wxBoxSizer(wxVERTICAL);
       top->Add(regex_pattern_entry_label, 0, wxLEFT | wxRIGHT | wxTOP, 5);
@@ -139,6 +149,7 @@ class cFrame : public wxFrame {
       top->Add(directory_path_entry, 0, wxEXPAND | wxALL, 5);
       top->Add(controls, 0, wxEXPAND | wxALL, 5);
       top->Add(search_button, 0, wxEXPAND | wxALL, 5);
+      top->Add(results_counter_label, 0, wxEXPAND | wxLEFT, 5);
       top->Add(search_results, 1, wxEXPAND | wxALL, 5);
       panel->SetSizer(top);
 
@@ -147,90 +158,177 @@ class cFrame : public wxFrame {
       regex_pattern_entry->Bind(wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
       directory_path_entry->Bind(wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
       search_results->Bind(wxEVT_LIST_ITEM_SELECTED, &cFrame::OnItem, this);
+
     // clang-format on
+
+    // Handle and display messages to text control widget sent from outside GUI
+    // thread
+    Bind(wxEVT_THREAD, [this](wxThreadEvent& event) {
+      switch (event.GetInt()) {
+        case message_code::search_result:
+          search_results->InsertItem(search_results_index++, event.GetString());
+          // In testing, matches were found (even on a network drive) much
+          // faster that the list was being updated. I could never get the list
+          // to update as matches were found (as does grepWin does). A queue of
+          // update messages would pile up until the end making the overall
+          // task slower.
+          // search_results->UpdateWindowUI();
+          break;
+        case message_code::search_lump_results:
+          for (auto& item : event.GetPayload<Strings>()) {
+            search_results->InsertItem(search_results_index++, item);
+          }
+          break;
+        case message_code::search_finished:
+          search_button->SetLabel("Search");
+          auto label =
+              wxString::Format(wxT("%i matches found"), search_results_index);
+          results_counter_label->SetLabel(label);
+          results_counter_label->Show();
+          break;
+      }
+    });
   }
-  void OnSearch(wxCommandEvent& event) {
-    // TODO: run this in another thread. the application will freeze and become
-    // unresponsive
-    // TODO: add a progress bar or something
-    // TODO: add a results label just like the one from Excel regex
 
-    search_results->DeleteAllItems();
-    SPDLOG_DEBUG("on search is entering");
+  void UpdateResult(std::string result) {
+    wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD);
+    event->SetInt(message_code::search_result);
+    event->SetString(result);
+    this->QueueEvent(event);
+    // VERY IMPORTANT: do not call any GUI function inside this thread, rather
+    // use wxQueueEvent(). We used pointer 'this'
+    // assuming it's safe; see OnClose()
+  }
 
-    // get user data from panel widgets
-    auto text = std::string(regex_pattern_entry->GetLineText(0).mb_str());
-    const auto path =
-        // std::string(directory_path_entry->GetLineText(0).mb_str());
-        std::string(directory_path_entry->GetValue().mb_str());
-    const auto use_text = text_match_checkbox->GetValue();
-    const auto use_recursion = recursive_checkbox->GetValue();
-    const wxString s_depth = recursive_depth->GetValue();
-    const auto recursion_depth = wxAtoi(s_depth);
+  wxThread::ExitCode Entry() {
+    const auto use_text = settings->use_text;
+    const auto use_recursion = settings->use_recursion;
+    const auto recursion_depth = settings->recursion_depth;
 
-    //  escape all regex characters to search for literal text
     if (use_text) {
-      text = EscapeForRegularExpression(text);
+      search_pattern_ = EscapeForRegularExpression(search_pattern_);
     }
 
+    // TODO: put the search call or iterator behind a function or something or
+    // co_func so that way i can have a single search loop or multiple loops for
+    // the different generators and a single function call
+
     try {
-      int i = 0;  // list display insertion index for each found path
-      if (use_recursion && recursion_depth == 0) {
-        std::regex r(text, std::regex_constants::icase);
+      if (use_recursion && recursion_depth == 0) {  // 0 == unrestricted depth
+        std::regex r(search_pattern_, std::regex_constants::icase);
         std::smatch m;
         for (auto const& entry :
-             std::filesystem::recursive_directory_iterator{path}) {
+             std::filesystem::recursive_directory_iterator{search_directory_}) {
+          if (GetThread()->TestDestroy()) {  // this is so ugly
+            break;
+          }
           std::string path = entry.path().generic_string();
           if (std::regex_search(path, m, r)) {
             SPDLOG_DEBUG("path found: {}", path);
-            search_results->InsertItem(i++, path);
+            UpdateResult(path);  // push a single match to the results list
           }
         }
       } else if (use_recursion && recursion_depth > 1) {
-        auto paths = GetFilePaths(path, recursion_depth);
-        std::regex r(text, std::regex_constants::icase);
+        // a depth of (1) is the same as using no recursion therefore it is
+        // handled in the else
+        Strings matches;
+        auto all_paths = GetFilePaths(search_directory_, recursion_depth);
+        std::regex r(search_pattern_, std::regex_constants::icase);
         std::smatch m;
-        for (auto const& path : paths) {
+        for (auto const& path : all_paths) {
+          if (GetThread()->TestDestroy()) {
+            break;
+          }
           if (std::regex_search(path, m, r)) {
             SPDLOG_DEBUG("path found: {}", path);
-            search_results->InsertItem(i++, path);
+            matches.push_back(path);
           }
         }
-      } else {  // don't use recursion
-        std::regex r(text, std::regex_constants::icase);
+        // lump matches into a single message as an optimization
+        wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD);
+        event->SetInt(message_code::search_lump_results);
+        event->SetPayload<Strings>(matches);
+        this->QueueEvent(event);
+      } else {  // no recursion, only search the folder names in the directory
+        std::regex r(search_pattern_, std::regex_constants::icase);
         std::smatch m;
-        for (auto const& entry : std::filesystem::directory_iterator{path}) {
+        for (auto const& entry :
+             std::filesystem::directory_iterator{search_directory_}) {
+          if (GetThread()->TestDestroy()) {
+            break;
+          }
           std::string path = entry.path().generic_string();
           if (std::regex_search(path, m, r)) {
             SPDLOG_DEBUG("path found: {}", path);
-            search_results->InsertItem(i++, path);
+            UpdateResult(path);  // push a single match to the results list
           }
         }
       }
-
-      // save state if search is valid
-      // SPDLOG_DEBUG("adding bookmark");
-      settings->use_text = use_text;
-      settings->use_recursion = use_recursion;
-      settings->recursion_depth = recursion_depth;
-      settings->AddBookmark(path);
+      settings->AddBookmark(search_directory_);
       settings->Save();
-
     } catch (std::filesystem::filesystem_error& e) {
+      // logging is thread safe as 2009
+      // https://wxwidgets.blogspot.com/2009/07/blogging-about-logging.html
       wxLogError("%s", e.what());
     } catch (std::regex_error& e) {
       wxLogError("%s", e.what());
     }
-    SPDLOG_DEBUG("on search is exiting");
-  }
-  void OnRecursive(wxCommandEvent& event) {
-    wxLogError("functionality not implemented yet");
-    recursive_checkbox->SetValue(false);
+    // post a search_finished message to my frame when complete
+    wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD);
+    event->SetInt(message_code::search_finished);
+    this->QueueEvent(event);
+    return (wxThread::ExitCode)0;
   }
 
-  void OnTextOption(wxCommandEvent& event) {
-    wxLogError("functionality not implemented yet");
-    text_match_checkbox->SetValue(false);
+  void OnSearch(wxCommandEvent& event) {
+    // also a stop button!
+    // start a new search if thread not already searching
+    if (!GetThread() || !(GetThread()->IsRunning())) {
+      results_counter_label->SetLabel("searching...");
+      search_results->DeleteAllItems();
+      search_results_index = 0;
+      SPDLOG_DEBUG("on search is entering");
+
+      // get user data from panel widgets for thread
+      search_pattern_ =
+          std::string(regex_pattern_entry->GetLineText(0).mb_str());
+      search_directory_ =
+          std::string(directory_path_entry->GetValue().mb_str());
+      settings->use_text = text_match_checkbox->GetValue();
+      settings->use_recursion = recursive_checkbox->GetValue();
+      const wxString s_depth = recursive_depth->GetValue();
+      settings->recursion_depth = wxAtoi(s_depth);
+
+      /**
+       * - gui does a bunch of set up work
+       * - gui launches a thread
+       * - every time a directory matches, a message is sent to the GUI with the
+       * file path.
+       * - once thread completes work, a final finish msg is sent to the gui
+       *
+       * does the gui need to be able to cancel the thread?
+       */
+
+      // we want to start a long task, but we don't want our GUI to block
+      // while it's executed, so we use a thread to do it.
+      if (CreateThread(wxTHREAD_JOINABLE) != wxTHREAD_NO_ERROR) {
+        wxLogError("Could not create the worker thread!");
+        return;
+      }
+      if (GetThread()->Run() != wxTHREAD_NO_ERROR) {
+        wxLogError("Could not run the worker thread!");
+        return;
+      }
+
+      // after the thread is successfully running, now I can notify the user
+      // that things are happening
+      search_button->SetLabel("Stop");
+      // launch widgets to display searching
+
+    } else {  // the thread is running so I must stop the current search
+      search_button->SetLabel("Search");
+      GetThread()->Delete();
+    }
   }
 
   void OnItem(wxListEvent& event) {
@@ -266,11 +364,24 @@ class cFrame : public wxFrame {
     CloseHandle(process_info.hThread);
 
     if (result == 0) {
-      wxLogError("Failed to start file explorer.\nError Code: %d", result,
-                 GetLastError());
-    } else {
+      wxLogError("Failed to start file explorer.\nError Code: %d", result);
+      return;
+    }
+    if (settings->exit_on_search) {
       Close(true);
     }
+  }
+
+  void OnClose(wxCloseEvent&) {
+    // important: before terminating, we _must_ wait for our joinable
+    // thread to end, if it's running; in fact it uses variables of this
+    // instance and posts events to *this event handler
+    if (GetThread() &&  // DoStartALongTask() may have not been called
+        GetThread()->IsRunning())
+      // GetThread()->Wait(); // wait for the thread to join
+      //  delete the thread gracefully, TestDestroy() will return true
+      GetThread()->Delete();
+    Destroy();
   }
 };
 

@@ -1,0 +1,15 @@
+Todo items remaining: 2
+------------------------------------------------------------
+Source: main.cpp
+Line #: 198
+Title: add a searching cool animation
+Body: 
+
+
+Source: main.cpp
+Line #: 208
+Title: put the search call or iterator behind a function or something or
+Body: co_func so that way i can have a single search loop or multiple loops for
+the different generators and a single function call
+
+

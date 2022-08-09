@@ -43,7 +43,9 @@ class Settings {
   bool use_text = false;
   bool use_recursion = false;
   int recursion_depth = 0;
+  bool exit_on_search = true;
 
+  Settings() = delete;
   /**
    * Loads toml user data into config class.
    * Will throw detailed errors from toml library if any of the following occur
@@ -52,21 +54,26 @@ class Settings {
    *   - toml::type_error - failed conversion from 'toml::find'
    *   - std::out_of_range - a table or value is not found
    */
-  Settings(std::string filename) {
+  Settings(std::string filename, bool default_construct) {
     file_name_ = GetFullPath(filename);
 
-    // Parse the main file
-    const auto data = toml::parse<toml::preserve_comments>(file_name_);
+    if (default_construct) {
+      return;
+    } else {
+      // Parse the main file
+      const auto data = toml::parse<toml::preserve_comments>(file_name_);
 
-    use_text = toml::find<bool>(data, "use_text");
-    use_recursion = toml::find<bool>(data, "use_recursion");
-    recursion_depth = toml::find<int>(data, "recursion_depth");
-    default_search_path = toml::find<std::string>(data, "default_search_path");
+      exit_on_search = toml::find_or<bool>(data, "exit_on_search", true);
+      use_text = toml::find_or<bool>(data, "use_text", false);
+      use_recursion = toml::find_or<bool>(data, "use_recursion", false);
+      recursion_depth = toml::find_or<int>(data, "recursion_depth", 0);
+      default_search_path =
+          toml::find_or<std::string>(data, "default_search_path", "");
 
-    auto &paths = toml::find(data, "bookmarks").as_array();
-    bookmarks = MakeContainer(paths);
+      auto &paths = toml::find(data, "bookmarks").as_array();
+      bookmarks = MakeContainer(paths);
+    }
   }
-  Settings() { file_name_ = GetFullPath(file_name_); }
 
   /**
    * Save current user data to disk.
@@ -75,6 +82,7 @@ class Settings {
    */
   void Save() {
     const toml::value top_table{
+        {"exit_on_search", exit_on_search},
         {"use_text", use_text},
         {"use_recursion", use_recursion},
         {"recursion_depth", recursion_depth},
@@ -104,9 +112,8 @@ using ConfigReturn = struct {
 ConfigReturn LoadFromFile(std::string filename) {
   std::string err_msg = "lorem ipsum";
   try {
-    auto settings = Settings(filename);
     // return a successfully parsed and validated config file
-    return ConfigReturn{true, "", settings};
+    return ConfigReturn{true, "", Settings(filename, false)};
   } catch (const toml::syntax_error &ex) {
     err_msg = std::format(
         "Syntax error in toml file: \"{}\"\nSee error message below for hints "
@@ -122,17 +129,14 @@ ConfigReturn LoadFromFile(std::string filename) {
     // err_msg = std::format("Failed to open \"{}\"", filename);
     //  I want to ignore when the file was missing and return default blank
     //  config
-    // TODO: this is a bug for default constructed settings objects, filename!
-    return ConfigReturn{true, err_msg, Settings()};
+    return ConfigReturn{true, err_msg, Settings(filename, true)};
   } catch (...) {
     err_msg = std::format(
         "Exception has gone unhandled loading \"{}\" and verifying values.",
         filename);
   }
-
   // return a default config object with a message explaining failure
-  // TODO: this is a bug for default constructed settings objects, filename!
-  return ConfigReturn{false, err_msg, Settings()};
+  return ConfigReturn{false, err_msg, Settings(filename, true)};
 }
 }  // namespace config
 #endif /* FINDIR_CONFIG_H */
