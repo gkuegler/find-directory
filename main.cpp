@@ -22,7 +22,8 @@
 #include "shell.h"
 #include "types.h"
 
-const wxString MY_APP_VERSION_STRING = "1.0";
+const wxString MY_APP_VERSION_STRING = "1.1";
+const wxString MY_APP_DATE = "2022-08-13";
 const constexpr int appwidth = 500;
 const constexpr int appheight = 800;
 
@@ -515,7 +516,7 @@ public:
     if (GetThread() && // DoStartALongTask() may have not been called
         GetThread()->IsRunning())
       // GetThread()->Wait(); // wait for the thread to join
-      //  delete the thread gracefully, TestDestroy() will return true
+      // delete the thread gracefully, TestDestroy() will return true
       GetThread()->Delete();
     Destroy();
   }
@@ -524,16 +525,18 @@ public:
   {
     wxAboutDialogInfo aboutInfo;
     aboutInfo.SetName("Find Project Directories");
-    aboutInfo.SetVersion(MY_APP_VERSION_STRING);
+    aboutInfo.SetVersion(MY_APP_VERSION_STRING, wxString());
     aboutInfo.SetCopyright("(C) 2022");
     // defining a website triggers the full-blown generic version to be used.
     // the generic version looks nicer.
     // aboutInfo.SetWebSite("http://myapp.org");
-    aboutInfo.SetDescription("A application for quickly navigating to project "
-                             "directories by name or "
-                             "searching for projects in the archives.\n\n"
-                             "Author: George Kuegler\n"
-                             "E-mail: george@KueglerAssociates.net");
+    aboutInfo.SetDescription(
+      wxString::Format("A application for quickly navigating to project "
+                       "directories by name or "
+                       "searching for projects in the archives.\n\n"
+                       "Author: George Kuegler\n"
+                       "E-mail: george@KueglerAssociates.net\n\nBuilt On: %s",
+                       MY_APP_DATE));
     wxAboutBox(aboutInfo);
   }
 
