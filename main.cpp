@@ -22,8 +22,8 @@
 #include "shell.h"
 #include "types.h"
 
-const wxString MY_APP_VERSION_STRING = "1.1";
-const wxString MY_APP_DATE = "2022-08-13";
+const wxString MY_APP_VERSION_STRING = "1.1.2";
+const wxString MY_APP_DATE = __DATE__;
 const constexpr int appwidth = 500;
 const constexpr int appheight = 800;
 
@@ -480,7 +480,7 @@ public:
     // out structure from create process call
     PROCESS_INFORMATION process_info;
 
-    auto cmd = std::string("explorer'.exe' \"") + path + std::string("\"");
+    auto cmd = std::string("explorer.exe \"") + path + std::string("\"");
     SPDLOG_DEBUG("cmd string: {}", cmd);
 
     BOOL result = CreateProcessA(nullptr,
@@ -494,11 +494,16 @@ public:
                                  &start_up_info,
                                  &process_info);
 
-    CloseHandle(process_info.hProcess);
-    CloseHandle(process_info.hThread);
+    if (process_info.hProcess) {
+      CloseHandle(process_info.hProcess);
+    }
+    if (process_info.hThread) {
+      CloseHandle(process_info.hThread);
+    }
 
     if (result == 0) {
-      wxLogError("Failed to start file explorer.\nError Code: %d", result);
+      wxLogError("Failed to start file explorer.\nError Code: %d",
+                 GetLastError());
       return;
     }
     if (settings->exit_on_search) {
