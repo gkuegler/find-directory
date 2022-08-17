@@ -12,6 +12,7 @@
 #include <wx/aboutdlg.h>
 #include <wx/activityindicator.h>
 #include <wx/listctrl.h>
+#include <wx/stdpaths.h>
 #include <wx/thread.h>
 #include <wx/valnum.h>
 #include <wx/wx.h>
@@ -22,7 +23,7 @@
 #include "shell.h"
 #include "types.h"
 
-const wxString MY_APP_VERSION_STRING = "1.1.2";
+const wxString MY_APP_VERSION_STRING = "1.1.3";
 const wxString MY_APP_DATE = __DATE__;
 const constexpr int appwidth = 500;
 const constexpr int appheight = 800;
@@ -147,8 +148,9 @@ public:
 
     wxMenu* menu_help = new wxMenu;
     menu_help->Append(wxID_HELP);
-    menu_help->AppendSeparator();
-    menu_help->Append(wxID_ABOUT);
+    // TODO: package readme help file into executable?
+    // menu_help->AppendSeparator();
+    // menu_help->Append(wxID_ABOUT);
 
     wxMenuBar* menu_bar = new wxMenuBar;
     menu_bar->Append(menu_file, "File");
@@ -162,6 +164,14 @@ public:
     //  Text Validator for recursion depth
     wxIntegerValidator<int> int_depth_validator(&m_value_recursion_depth);
     int_depth_validator.SetRange(0, 10000);
+
+    auto& standard = wxStandardPaths::Get();
+    const auto executable_path = standard.GetExecutablePath();
+    auto file = std::filesystem::current_path();
+    if (!executable_path.empty() && !file.empty()) {
+      spdlog::debug("executable path: {}", executable_path.ToUTF8());
+      // spdlog::debug("current working directory: {}", file.c_str());
+    }
 
     auto result = config::LoadFromFile("settings.toml");
     if (!result.success) {
@@ -562,11 +572,14 @@ public:
   {
     // open the help file with default editor
     // windows will prompt the user for a suitable program if not found
-    auto failure = LaunchShellCommand(GetHandle(), "open", "settings.toml");
+    // auto path = GetFullPath(settings->file_name_);
+    const auto path = settings->file_path_;
+    auto failure = LaunchShellCommand(GetHandle(), "open", path);
     if (failure) {
       if (failure.value() == ERROR_FILE_NOT_FOUND) {
-        wxLogError("Couldn't find the settings file: 'settings.toml' usually "
-                   "included in '.exe' directory.");
+        wxLogError("Couldn't find the settings file: '%s' usually "
+                   "included in '.exe' directory.",
+                   path);
       }
     }
   }
@@ -589,7 +602,6 @@ public:
     // My voice coding tools launch the release version of this application.
     // It doesn't have file write permission when this application is started
     // from the working directory of natlink.
-
     SetUpLogging();
     frame_ = new cFrame();
     frame_->Show();

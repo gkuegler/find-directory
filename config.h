@@ -29,12 +29,18 @@ std::string
 GetFullPath(std::string filename)
 {
   char full_path[MAXIMUM_FILE_PATH];
-  auto result = GetModuleFileNameA(nullptr, full_path, MAXIMUM_FILE_PATH);
-  std::filesystem::path path(full_path);
-  auto file_path = path.parent_path().string() + "\\" + filename;
-  SPDLOG_DEBUG(full_path);
-  SPDLOG_DEBUG(file_path);
-  return file_path;
+  auto n_char = GetModuleFileNameA(nullptr, full_path, MAXIMUM_FILE_PATH);
+  if (n_char != 0 && n_char != MAXIMUM_FILE_PATH) {
+    std::filesystem::path path(full_path);
+    auto file_path = path.parent_path().string() + "\\" + filename;
+    SPDLOG_DEBUG(full_path);
+    SPDLOG_DEBUG(file_path);
+    return file_path;
+  } else {
+    // TODO: find a way to throw specific error
+    // the function failed or the file path was too long
+    return "";
+  }
 }
 
 namespace config {
@@ -42,7 +48,7 @@ namespace config {
 class Settings
 {
 public:
-  std::string file_name_ = "settings.toml";
+  std::string file_path_ = "";
   std::set<std::string> bookmarks = {};
   std::string default_search_path = "";
   bool use_text = false;
@@ -61,7 +67,7 @@ public:
    */
   Settings(std::string filename, bool default_construct = false)
   {
-    file_name_ = GetFullPath(filename);
+    file_path_ = GetFullPath(filename); // prefix with executable directory
 
     if (default_construct) {
       // Return default constructed settings with a filename.
@@ -69,7 +75,7 @@ public:
       return;
     } else {
       // Parse the main file
-      const auto data = toml::parse<toml::preserve_comments>(file_name_);
+      const auto data = toml::parse<toml::preserve_comments>(file_path_);
 
       exit_on_search = toml::find_or<bool>(data, "exit_on_search", true);
       use_text = toml::find_or<bool>(data, "use_text", false);
@@ -99,7 +105,7 @@ public:
       { "bookmarks", bookmarks },
     };
 
-    std::fstream file(file_name_, std::ios_base::out);
+    std::fstream file(file_path_, std::ios_base::out);
     file << top_table << std::endl;
     file.close();
   }
