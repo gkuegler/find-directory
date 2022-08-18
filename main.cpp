@@ -147,10 +147,10 @@ public:
     // menu_edit->Append(wxID_EDIT, "Clear ShortcutS", "Clear Shortcuts.");
 
     wxMenu* menu_help = new wxMenu;
-    menu_help->Append(wxID_HELP);
+    // menu_help->Append(wxID_HELP);
     // TODO: package readme help file into executable?
     // menu_help->AppendSeparator();
-    // menu_help->Append(wxID_ABOUT);
+    menu_help->Append(wxID_ABOUT);
 
     wxMenuBar* menu_bar = new wxMenuBar;
     menu_bar->Append(menu_file, "File");
@@ -165,18 +165,13 @@ public:
     wxIntegerValidator<int> int_depth_validator(&m_value_recursion_depth);
     int_depth_validator.SetRange(0, 10000);
 
-    auto& standard = wxStandardPaths::Get();
-    const auto executable_path = standard.GetExecutablePath();
-    auto file = std::filesystem::current_path();
-    if (!executable_path.empty() && !file.empty()) {
-      spdlog::debug("executable path: {}", executable_path.ToUTF8());
-      // spdlog::debug("current working directory: {}", file.c_str());
-    }
-
+    // load from file will prefix executable directory to form absolute path
     auto result = config::LoadFromFile("settings.toml");
     if (!result.success) {
       wxLogError("%s", result.msg);
     }
+
+    // TODO: what happens if this fails?
     settings = std::make_shared<config::Settings>(result.settings);
 
     auto bookmarks =
