@@ -166,7 +166,7 @@ public:
     int_depth_validator.SetRange(0, 10000);
 
     // load from file will prefix executable directory to form absolute path
-    auto result = config::LoadFromFile("settings.toml");
+    auto result = config::LoadFromFile("find-directory-settings.toml");
     if (!result.success) {
       wxLogError("%s", result.msg);
     }
@@ -401,8 +401,8 @@ public:
           }
         }
       }
-      settings->AddBookmark(search_directory_);
-      settings->Save();
+      settings->AddBookmark(search_directory_); // add searchpath to dropdown
+      // settings->Save();  // I do not want to save settings
     } catch (std::filesystem::filesystem_error& e) {
       // logging is thread safe as 2009
       // https://wxwidgets.blogspot.com/2009/07/blogging-about-logging.html
