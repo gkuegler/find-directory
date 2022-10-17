@@ -23,10 +23,10 @@
 #include "shell.h"
 #include "types.h"
 
-const wxString MY_APP_VERSION_STRING = "1.1.3";
+const wxString MY_APP_VERSION_STRING = "1.2";
 const wxString MY_APP_DATE = __DATE__;
-const constexpr int appwidth = 500;
-const constexpr int appheight = 800;
+const constexpr int default_app_width = 500;
+const constexpr int default_app_height = 800;
 
 bool
 DoesExist(std::string path)
@@ -37,13 +37,14 @@ DoesExist(std::string path)
 wxPoint
 GetOrigin(const int w, const int h)
 {
-  int desktopWidth = GetSystemMetrics(SM_CXMAXIMIZED);
-  int desktopHeight = GetSystemMetrics(SM_CYMAXIMIZED);
-  return wxPoint((desktopWidth / 2) - (w / 2), (desktopHeight / 2) - (h / 2));
+  int desktop_width = GetSystemMetrics(SM_CXMAXIMIZED);
+  int desktop_height = GetSystemMetrics(SM_CYMAXIMIZED);
+  return wxPoint((desktop_width / 2) - (w / 2), (desktop_height / 2) - (h / 2));
 }
 
-// container must be an irritable array of type T,
-// where type T can be implicitly converted to wxString
+// requirement: type T<S> must be an iterable container where S can be
+// implicitly converted to a wxString.
+// This function is a bit inefficient, but it's typically only used at startup.
 template<typename T>
 wxArrayString
 BuildWxArrayString(const T container)
@@ -129,8 +130,8 @@ public:
     : wxFrame(nullptr,
               wxID_ANY,
               "Find Directory With Regex",
-              GetOrigin(appwidth, appheight),
-              wxSize(appwidth, appheight))
+              GetOrigin(default_app_width, default_app_height),
+              wxSize(default_app_width, default_app_height))
   {
 
     //////////////////////////////////////////////////////////////////////
