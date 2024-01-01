@@ -1,3 +1,16 @@
+/**
+ *
+ *
+ * License: ?
+ *
+ * Author: George Kuegler
+ * E-mail: georgekuegler@gmail.com
+ *
+ */
+
+// TODO: add command line option to open with specific direct to search
+// TODO: copy project name/path to the clipboard (for the purpose
+//  of file transfer tool)
 
 #include <algorithm>
 #include <chrono>
@@ -28,23 +41,19 @@ const wxString MY_APP_DATE = __DATE__;
 const constexpr int default_app_width = 500;
 const constexpr int default_app_height = 800;
 
-bool
-DoesExist(std::string path)
-{
-  return std::filesystem::exists(path);
-}
-
 wxPoint
 GetOrigin(const int w, const int h)
 {
   int desktop_width = GetSystemMetrics(SM_CXMAXIMIZED);
   int desktop_height = GetSystemMetrics(SM_CYMAXIMIZED);
-  return wxPoint((desktop_width / 2) - (w / 2), (desktop_height / 2) - (h / 2));
+  return wxPoint((desktop_width / 2) - (w / 2),
+                 (desktop_height / 2) - (h / 2));
 }
 
 // requirement: type T<S> must be an iterable container where S can be
 // implicitly converted to a wxString.
-// This function is a bit inefficient, but it's typically only used at startup.
+// This function is a bit inefficient, but it's typically only used at
+// startup.
 template<typename T>
 wxArrayString
 BuildWxArrayString(const T container)
@@ -63,7 +72,8 @@ GetFilePaths(std::string base_path, int depth)
     return {}; // return empty if depth exhausted
   }
   Strings p;
-  for (auto const& entry : std::filesystem::directory_iterator{ base_path }) {
+  for (auto const& entry :
+       std::filesystem::directory_iterator{ base_path }) {
     if (entry.is_directory()) {
       auto folder = entry.path().generic_string();
       p.push_back(folder);
@@ -135,7 +145,7 @@ public:
   {
 
     //////////////////////////////////////////////////////////////////////
-    //                            Menu Bar                              //
+    //                            Menu Bar //
     //////////////////////////////////////////////////////////////////////
     wxMenu* menu_file = new wxMenu;
     menu_file->Append(wxID_SAVE, "Save\tCtrl-s", "Save settings.");
@@ -145,7 +155,8 @@ public:
     wxMenu* menu_edit = new wxMenu;
     menu_edit->Append(wxID_EDIT, "Settings", "Edit settings file.");
     // TODO: make a clear shortcuts method
-    // menu_edit->Append(wxID_EDIT, "Clear ShortcutS", "Clear Shortcuts.");
+    // menu_edit->Append(wxID_EDIT, "Clear ShortcutS", "Clear
+    // Shortcuts.");
 
     wxMenu* menu_help = new wxMenu;
     // menu_help->Append(wxID_HELP);
@@ -163,10 +174,12 @@ public:
     //////////////////////////////////////////////////////////////////////
 
     //  Text Validator for recursion depth
-    wxIntegerValidator<int> int_depth_validator(&m_value_recursion_depth);
+    wxIntegerValidator<int> int_depth_validator(
+      &m_value_recursion_depth);
     int_depth_validator.SetRange(0, 10000);
 
-    // load from file will prefix executable directory to form absolute path
+    // load from file will prefix executable directory to form absolute
+    // path
     auto result = config::LoadFromFile("find-directory-settings.toml");
     if (!result.success) {
       wxLogError("%s", result.msg);
@@ -192,16 +205,18 @@ public:
                                          wxDefaultPosition,
                                          wxDefaultSize,
                                          wxTE_PROCESS_ENTER);
-    directory_path_entry = new wxComboBox(panel,
-                                          wxID_ANY,
-                                          settings->default_search_path,
-                                          wxDefaultPosition,
-                                          wxDefaultSize,
-                                          bookmarks,
-                                          wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
-    text_match_checkbox = new wxCheckBox(panel, wxID_ANY, "text search");
-    recursive_checkbox =
-      new wxCheckBox(panel, wxID_ANY, "recursively search child directories");
+    directory_path_entry =
+      new wxComboBox(panel,
+                     wxID_ANY,
+                     settings->default_search_path,
+                     wxDefaultPosition,
+                     wxDefaultSize,
+                     bookmarks,
+                     wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+    text_match_checkbox =
+      new wxCheckBox(panel, wxID_ANY, "text search");
+    recursive_checkbox = new wxCheckBox(
+      panel, wxID_ANY, "recursively search child directories");
     recursive_depth = new wxTextCtrl(panel,
                                      wxID_ANY,
                                      "0",
@@ -222,8 +237,10 @@ public:
 
     // Layout Controls
     auto controls = new wxBoxSizer(wxHORIZONTAL);
-    controls->Add(text_match_checkbox, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-    controls->Add(recursive_checkbox, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+    controls->Add(
+      text_match_checkbox, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+    controls->Add(
+      recursive_checkbox, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
     controls->Add(recursive_depth, 1, wxRIGHT, 5);
     controls->Add(
       recursion_depth_label, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
@@ -231,7 +248,8 @@ public:
     auto top = new wxBoxSizer(wxVERTICAL);
     top->Add(regex_pattern_entry_label, 0, wxLEFT | wxRIGHT | wxTOP, 5);
     top->Add(regex_pattern_entry, 0, wxEXPAND | wxALL, 5);
-    top->Add(directory_path_entry_label, 0, wxLEFT | wxRIGHT | wxTOP, 5);
+    top->Add(
+      directory_path_entry_label, 0, wxLEFT | wxRIGHT | wxTOP, 5);
     top->Add(directory_path_entry, 0, wxEXPAND | wxALL, 5);
     top->Add(controls, 0, wxEXPAND | wxALL, 5);
     top->Add(search_button, 0, wxEXPAND | wxALL, 5);
@@ -244,31 +262,39 @@ public:
     SetAcceleratorTable(wxAcceleratorTable(1, &k1));
 
     // Bind Events
-    Bind(wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnClose, this, wxID_EXIT);
+    Bind(
+      wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnClose, this, wxID_EXIT);
     Bind(wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnSave, this, wxID_SAVE);
     Bind(wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnHelp, this, wxID_HELP);
     Bind(wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnEdit, this, wxID_EDIT);
-    Bind(wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnAbout, this, wxID_ABOUT);
+    Bind(
+      wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnAbout, this, wxID_ABOUT);
     search_button->Bind(wxEVT_BUTTON, &cFrame::OnSearch, this);
-    regex_pattern_entry->Bind(wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
-    directory_path_entry->Bind(wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
-    text_match_checkbox->Bind(wxEVT_CHECKBOX, &cFrame::OnOptionsText, this);
-    recursive_checkbox->Bind(wxEVT_CHECKBOX, &cFrame::OnOptionsRecursion, this);
+    regex_pattern_entry->Bind(
+      wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
+    directory_path_entry->Bind(
+      wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
+    text_match_checkbox->Bind(
+      wxEVT_CHECKBOX, &cFrame::OnOptionsText, this);
+    recursive_checkbox->Bind(
+      wxEVT_CHECKBOX, &cFrame::OnOptionsRecursion, this);
     recursive_depth->Bind(
       wxEVT_CHECKBOX, &cFrame::OnOptionsRecursionDepth, this);
-    search_results->Bind(wxEVT_LIST_ITEM_SELECTED, &cFrame::OnItem, this);
+    search_results->Bind(
+      wxEVT_LIST_ITEM_SELECTED, &cFrame::OnItem, this);
 
-    // Handle and display messages to text control widget sent from outside GUI
-    // thread
+    // Handle and display messages to text control widget sent from
+    // outside GUI thread
     Bind(wxEVT_THREAD, [this](wxThreadEvent& event) {
       switch (event.GetInt()) {
         case message_code::search_result:
-          search_results->InsertItem(search_results_index++, event.GetString());
-          // In testing, matches were found (even on a network drive) much
-          // faster that the list was being updated. I could never get the list
-          // to update as matches were found (as does grepWin does). A queue of
-          // update messages would pile up until the end making the overall
-          // task slower.
+          search_results->InsertItem(search_results_index++,
+                                     event.GetString());
+          // In testing, matches were found (even on a network drive)
+          // much faster that the list was being updated. I could never
+          // get the list to update as matches were found (as does
+          // grepWin does). A queue of update messages would pile up
+          // until the end making the overall task slower.
           // search_results->UpdateWindowUI();
           break;
         case message_code::search_lump_results:
@@ -278,8 +304,8 @@ public:
           break;
         case message_code::search_finished:
           search_button->SetLabel("Search");
-          auto label =
-            wxString::Format(wxT("%i matches found"), search_results_index);
+          auto label = wxString::Format(wxT("%i matches found"),
+                                        search_results_index);
           results_counter_label->SetLabel(label);
           results_counter_label->Show();
           break;
@@ -309,9 +335,9 @@ public:
     event->SetInt(message_code::search_result);
     event->SetString(result);
     this->QueueEvent(event);
-    // VERY IMPORTANT: do not call any GUI function inside this thread, rather
-    // use wxQueueEvent(). We used pointer 'this'
-    // assuming it's safe; see OnClose()
+    // VERY IMPORTANT: do not call any GUI function inside this thread,
+    // rather use wxQueueEvent(). We used pointer 'this' assuming it's
+    // safe; see OnClose()
   }
 
   wxThread::ExitCode Entry()
@@ -324,12 +350,14 @@ public:
       search_pattern_ = EscapeForRegularExpression(search_pattern_);
     }
 
-    // TODO: put the search call or iterator behind a function or something or
-    // co_func so that way i can have a single search loop or multiple loops for
-    // the different generators and a single function call
+    // TODO: put the search call or iterator behind a function or
+    // something or co_func so that way i can have a single search loop
+    // or multiple loops for the different generators and a single
+    // function call
 
     // Check to see if the path exists with a timeout
-    std::future<bool> future = std::async(DoesExist, search_directory_);
+    std::future<bool> future =
+      std::async(std::filesystem::exists, search_directory_);
     SPDLOG_DEBUG("checking, please wait");
     std::chrono::milliseconds span(1000);
     if (future.wait_for(span) == std::future_status::ready) {
@@ -352,10 +380,12 @@ public:
     }
 
     try {
-      if (use_recursion && recursion_depth == 0) { // 0 == unrestricted depth
+      if (use_recursion &&
+          recursion_depth == 0) { // 0 == unrestricted depth
         std::regex r(search_pattern_, std::regex_constants::icase);
         std::smatch m;
-        for (auto const& entry : std::filesystem::recursive_directory_iterator{
+        for (auto const& entry :
+             std::filesystem::recursive_directory_iterator{
                search_directory_ }) {
           if (GetThread()->TestDestroy()) { // this is so ugly
             break;
@@ -363,14 +393,16 @@ public:
           std::string path = entry.path().generic_string();
           if (std::regex_search(path, m, r)) {
             SPDLOG_DEBUG("path found: {}", path);
-            UpdateResult(path); // push a single match to the results list
+            UpdateResult(
+              path); // push a single match to the results list
           }
         }
       } else if (use_recursion && recursion_depth > 1) {
-        // a depth of (1) is the same as using no recursion therefore it is
-        // handled in the else
+        // a depth of (1) is the same as using no recursion therefore it
+        // is handled in the else
         Strings matches;
-        auto all_paths = GetFilePaths(search_directory_, recursion_depth);
+        auto all_paths =
+          GetFilePaths(search_directory_, recursion_depth);
         std::regex r(search_pattern_, std::regex_constants::icase);
         std::smatch m;
         for (auto const& path : all_paths) {
@@ -387,7 +419,8 @@ public:
         event->SetInt(message_code::search_lump_results);
         event->SetPayload<Strings>(matches);
         this->QueueEvent(event);
-      } else { // no recursion, only search the folder names in the directory
+      } else { // no recursion, only search the folder names in the
+               // directory
         std::regex r(search_pattern_, std::regex_constants::icase);
         std::smatch m;
         for (auto const& entry :
@@ -398,11 +431,13 @@ public:
           std::string path = entry.path().generic_string();
           if (std::regex_search(path, m, r)) {
             SPDLOG_DEBUG("path found: {}", path);
-            UpdateResult(path); // push a single match to the results list
+            UpdateResult(
+              path); // push a single match to the results list
           }
         }
       }
-      settings->AddBookmark(search_directory_); // add searchpath to dropdown
+      settings->AddBookmark(
+        search_directory_); // add searchpath to dropdown
       // settings->Save();  // I do not want to save settings
     } catch (std::filesystem::filesystem_error& e) {
       // logging is thread safe as 2009
@@ -438,16 +473,17 @@ public:
       /**
        * - gui does a bunch of set up work
        * - gui launches a thread
-       * - every time a directory matches, a message is sent to the GUI with the
-       * file path.
-       * - once thread completes work, a final finish msg is sent to the gui
+       * - every time a directory matches, a message is sent to the GUI
+       * with the file path.
+       * - once thread completes work, a final finish msg is sent to the
+       * gui
        *
        * does the gui need to be able to cancel the thread?
        */
 
-      // We want to start a long task, but we don't want our GUI to block
-      // while it's executed, so we use a thread to do it.
-      // Use the thread specified in the thread helper.
+      // We want to start a long task, but we don't want our GUI to
+      // block while it's executed, so we use a thread to do it. Use the
+      // thread specified in the thread helper.
       if (CreateThread(wxTHREAD_JOINABLE) != wxTHREAD_NO_ERROR) {
         wxLogError("Could not create the worker thread!");
         return;
@@ -457,8 +493,8 @@ public:
         return;
       }
 
-      // after the thread is successfully running, now I can notify the user
-      // that things are happening
+      // after the thread is successfully running, now I can notify the
+      // user that things are happening
       search_button->SetLabel("Stop");
       // launch widgets to display searching
     } else { // the thread is running so I must stop the current search
@@ -472,11 +508,12 @@ public:
     // get path from list box selection
     auto path = std::string(event.GetItem().GetText().mb_str());
     // test string
-    // std::string path = "L:\\C24-11 Dunkin, 103-105 Elm Street, New Canaan";
+    // std::string path = "L:\\C24-11 Dunkin, 103-105 Elm Street, New
+    // Canaan";
 
     // path library returns '/' in pathnames
-    // windows CreateProcessA call does not accept '/' on cmd line, they are
-    // interpreted as switches
+    // windows CreateProcessA call does not accept '/' on cmd line, they
+    // are interpreted as switches
     std::replace(path.begin(), path.end(), '/', '\\');
 
     STARTUPINFOA start_up_info;
@@ -486,19 +523,21 @@ public:
     // out structure from create process call
     PROCESS_INFORMATION process_info;
 
-    auto cmd = std::string("explorer.exe \"") + path + std::string("\"");
+    auto cmd =
+      std::string("explorer.exe \"") + path + std::string("\"");
     SPDLOG_DEBUG("cmd string: {}", cmd);
 
-    BOOL result = CreateProcessA(nullptr,
-                                 const_cast<char*>(cmd.c_str()),
-                                 nullptr,          // process attributes
-                                 nullptr,          // thread attributes
-                                 FALSE,            // don't inherit handles
-                                 DETACHED_PROCESS, // process creation flags
-                                 nullptr,
-                                 nullptr,
-                                 &start_up_info,
-                                 &process_info);
+    BOOL result =
+      CreateProcessA(nullptr,
+                     const_cast<char*>(cmd.c_str()),
+                     nullptr,          // process attributes
+                     nullptr,          // thread attributes
+                     FALSE,            // don't inherit handles
+                     DETACHED_PROCESS, // process creation flags
+                     nullptr,
+                     nullptr,
+                     &start_up_info,
+                     &process_info);
 
     if (process_info.hProcess) {
       CloseHandle(process_info.hProcess);
@@ -538,16 +577,16 @@ public:
     aboutInfo.SetName("Find Project Directories");
     aboutInfo.SetVersion(MY_APP_VERSION_STRING, wxString());
     aboutInfo.SetCopyright("(C) 2022");
-    // defining a website triggers the full-blown generic version to be used.
-    // the generic version looks nicer.
+    // defining a website triggers the full-blown generic version to be
+    // used. the generic version looks nicer.
     // aboutInfo.SetWebSite("http://myapp.org");
-    aboutInfo.SetDescription(
-      wxString::Format("A application for quickly navigating to project "
-                       "directories by name or "
-                       "searching for projects in the archives.\n\n"
-                       "Author: George Kuegler\n"
-                       "E-mail: george@KueglerAssociates.net\n\nBuilt On: %s",
-                       MY_APP_DATE));
+    aboutInfo.SetDescription(wxString::Format(
+      "A application for quickly navigating to project "
+      "directories by name or "
+      "searching for projects in the archives.\n\n"
+      "Author: George Kuegler\n"
+      "E-mail: george@KueglerAssociates.net\n\nBuilt On: %s",
+      MY_APP_DATE));
     wxAboutBox(aboutInfo);
   }
 
@@ -558,8 +597,9 @@ public:
     auto failure = LaunchShellCommand(GetHandle(), "open", "readme.md");
     if (failure) {
       if (failure.value() == ERROR_FILE_NOT_FOUND) {
-        wxLogError("Couldn't find the help 'readme.md' file usually included "
-                   "in '.exe' directory.");
+        wxLogError(
+          "Couldn't find the help 'readme.md' file usually included "
+          "in '.exe' directory.");
       }
     }
   }
@@ -595,9 +635,9 @@ public:
   virtual bool OnInit()
   {
     // I am enabling logging only for debug mode.
-    // My voice coding tools launch the release version of this application.
-    // It doesn't have file write permission when this application is started
-    // from the working directory of natlink.
+    // My voice coding tools launch the release version of this
+    // application. It doesn't have file write permission when this
+    // application is started from the working directory of natlink.
     SetUpLogging();
     frame_ = new cFrame();
     frame_->Show();
