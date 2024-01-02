@@ -35,9 +35,8 @@
 #include <wx/wx.h>
 #pragma warning(pop)
 
-// Lean and mean prevents winsock version clash
-// between wxWidgets and Windows.h.
-// #define WIN32_LEAN_AND_MEAN
+// Need to include Windows header after
+// wxWidgets due to winsock2 incompatibility.
 #include <windows.h>
 
 #include "config.h"
@@ -45,7 +44,7 @@
 #include "shell.h"
 #include "types.h"
 
-const wxString MY_APP_VERSION_STRING = "1.2";
+const wxString MY_APP_VERSION_STRING = "1.3";
 const wxString MY_APP_DATE = __DATE__;
 const constexpr int default_app_width = 500;
 const constexpr int default_app_height = 800;
@@ -136,7 +135,8 @@ private:
   int search_results_index;
 
 public:
-  Frame(const wxString& default_ptrn)
+  Frame(const wxString& default_ptrn,
+        const wxString& default_search_folder)
     : wxFrame(nullptr,
               wxID_ANY,
               "Find Directory With Regex",
@@ -207,14 +207,17 @@ public:
                                          wxDefaultPosition,
                                          wxDefaultSize,
                                          wxTE_PROCESS_ENTER);
-    directory_path_entry =
-      new wxComboBox(panel,
-                     wxID_ANY,
-                     settings->default_search_path,
-                     wxDefaultPosition,
-                     wxDefaultSize,
-                     bookmarks,
-                     wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+
+    directory_path_entry = new wxComboBox(
+      panel,
+      wxID_ANY,
+      !default_search_folder.empty() ? default_search_folder
+                                     : settings->default_search_path,
+      wxDefaultPosition,
+      wxDefaultSize,
+      bookmarks,
+      wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+
     text_match_checkbox =
       new wxCheckBox(panel, wxID_ANY, "text search");
     recursive_checkbox = new wxCheckBox(
@@ -649,7 +652,10 @@ public:
     const wxString default_ptrn =
       arg_count > 1 ? wxTheApp->argv[1] : wxString("");
 
-    frame = new Frame(default_ptrn);
+    const wxString default_search_folder =
+      arg_count > 2 ? wxTheApp->argv[2] : wxString("");
+
+    frame = new Frame(default_ptrn, default_search_folder);
     frame->Show();
     return true;
   }
