@@ -1,8 +1,0 @@
-use_text = false
-default_search_path = ""
-use_recursion = false
-recursion_depth = 0
-bookmarks = [
-"c:\\",
-]
-

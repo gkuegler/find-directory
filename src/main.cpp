@@ -1,7 +1,6 @@
 /**
  *
- *
- * License: ?
+ * License: MIT
  *
  * Author: George Kuegler
  * E-mail: georgekuegler@gmail.com
