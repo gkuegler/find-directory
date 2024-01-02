@@ -1,4 +1,4 @@
-# ABOUT FINE DIRECTORY PROGRAM
+# FIND DIRECTORY
 author: George Kuegler
 created: 06/22/2022
 
@@ -11,9 +11,10 @@ Click on a result to open a new file explorer window to the directory path.
 
 ## EXAMPLES
 
-This tool can be used to quickly search the KA archive folders.
+Notes for KA employees:
+This tool can be used to quickly search our KA archive folders.
 
-set the directory to -> \\192.168.1.20\CTroot\Archives
+set the directory to -> <our-archives-location>
 select "recursively search child directories"
 set the recursion depth to -> 2
 
@@ -31,7 +32,7 @@ This will match all folder names containing an "A" followed by at least 1 number
 
 ## OPTIONS
 
-### text search
+### Text Search
 
 Text search searches for the literal sequence of characters in the search pattern.
 Use this option if you have no interest in leveraging regex.
@@ -42,7 +43,7 @@ Note for the adventurous: Make sure to check the "text search option" if using t
 ., +, *, ?, ^, $, (, ), [, ], {, }, |, or \
 Otherwise, for all letters, numbers, and a "-", regex mode with behave the same as text mode.
 
-### recursively search child directors
+### Recursivly Seach Child Directories
 
 Check this option to search subdirectory names as well.
 The adjacent text entry limits the recursion depth.
@@ -56,7 +57,7 @@ example:
 
 By default this program only searches the directory specified.
 
-## GENERAL
+## General
 
 Some settings will need to be modified by editing the configuration file.
 Settings are commonly stored in the same directory with the executable as -> "settings.toml".
