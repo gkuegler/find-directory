@@ -178,8 +178,8 @@ public:
       &m_value_recursion_depth);
     int_depth_validator.SetRange(0, 10000);
 
-    // load from file will prefix executable directory to form absolute
-    // path
+    // Load from file will prefix executable directory to form absolute
+    // path.
     auto result = config::LoadFromFile("find-directory-settings.toml");
     if (!result.success) {
       wxLogError("%s", result.msg);
@@ -191,17 +191,19 @@ public:
     auto bookmarks =
       BuildWxArrayString<std::set<std::string>>(settings->bookmarks);
 
-    // Widget Creation
-    auto panel = new wxPanel(this); // main panel for layout
+    // main panel for layout
+    auto panel = new wxPanel(this);
+
     auto regex_pattern_entry_label =
       new wxStaticText(panel, wxID_ANY, "search pattern:");
     auto directory_path_entry_label =
       new wxStaticText(panel, wxID_ANY, "directory:");
     auto recursion_depth_label =
       new wxStaticText(panel, wxID_ANY, "0 = full recursion depth");
+
     regex_pattern_entry = new wxTextCtrl(panel,
                                          wxID_ANY,
-                                         "",
+                                         default_ptrn,
                                          wxDefaultPosition,
                                          wxDefaultSize,
                                          wxTE_PROCESS_ENTER);
@@ -272,12 +274,6 @@ public:
     regex_pattern_entry->Bind(wxEVT_TEXT_ENTER, &Frame::OnSearch, this);
     directory_path_entry->Bind(
       wxEVT_TEXT_ENTER, &Frame::OnSearch, this);
-    text_match_checkbox->Bind(
-      wxEVT_CHECKBOX, &Frame::OnOptionsText, this);
-    recursive_checkbox->Bind(
-      wxEVT_CHECKBOX, &Frame::OnOptionsRecursion, this);
-    recursive_depth->Bind(
-      wxEVT_CHECKBOX, &Frame::OnOptionsRecursionDepth, this);
     search_results->Bind(
       wxEVT_LIST_ITEM_SELECTED, &Frame::OnItem, this);
 
@@ -310,25 +306,13 @@ public:
       }
     });
 
-    if (!default_ptrn.empty()) {
-      regex_pattern_entry->SetValue(default_ptrn);
+    // Automatically start a search if 'default_ptrn' contains a value.
+    // default_ptrn will be non-empty if a search pattern was provided
+    // as a commandline argument.
+    if (!default_ptrn.empty() and
+        !directory_path_entry->IsTextEmpty()) {
+      this->OnSearch(wxCommandEvent());
     }
-  }
-
-  void OnOptionsText(wxCommandEvent& event)
-  {
-    settings->use_text = text_match_checkbox->GetValue();
-  }
-
-  void OnOptionsRecursion(wxCommandEvent& event)
-  {
-    settings->use_recursion = recursive_checkbox->GetValue();
-  }
-
-  void OnOptionsRecursionDepth(wxCommandEvent& event)
-  {
-    const wxString s_depth = recursive_depth->GetValue();
-    settings->recursion_depth = wxAtoi(s_depth);
   }
 
   void UpdateResult(std::string result)
@@ -462,7 +446,7 @@ public:
     return static_cast<wxThread::ExitCode>(0);
   }
 
-  void OnSearch(wxCommandEvent& event)
+  void OnSearch(const wxCommandEvent&)
   {
     // TODO: ping server availability before searching
     // also a stop button!
@@ -565,7 +549,14 @@ public:
     }
   }
 
-  void OnSave(wxCommandEvent&) { settings->Save(); }
+  void OnSave(wxCommandEvent&)
+  {
+    settings->use_text = text_match_checkbox->GetValue();
+    settings->use_recursion = recursive_checkbox->GetValue();
+    const wxString s_depth = recursive_depth->GetValue();
+    settings->recursion_depth = wxAtoi(s_depth);
+    settings->Save();
+  }
 
   void OnClose(wxCommandEvent&)
   {
@@ -647,14 +638,16 @@ public:
     // My voice coding tools launch the release version of this
     // application. It doesn't have file write permission when this
     // application is started from the working directory of natlink.
+#ifdef _DEBUG
     SetUpLogging();
+#endif
 
     // Parse CMD line options.
     const auto arg_count = wxTheApp->argc;
-    spdlog::debug("argument count: {}", arg_count);
+    SPDLOG_DEBUG("argument count: {}", arg_count);
 
     const wxString default_ptrn =
-      arg_count > 1 ? wxTheApp->argv[2] : wxString("");
+      arg_count > 1 ? wxTheApp->argv[1] : wxString("");
 
     frame = new Frame(default_ptrn);
     frame->Show();
@@ -662,7 +655,9 @@ public:
   }
   virtual int OnExit()
   {
+#ifdef _DEBUG
     void FlushLogging();
+#endif
     return 0;
   }
 };
