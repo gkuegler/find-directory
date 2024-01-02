@@ -53,6 +53,17 @@
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(WXWIN)include;$(WXWIN)include\msvc;$(TOMLCPP)\;$(SPDWIN)include</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(WXWIN)lib\vc_x64_lib;$(SPDWIN)lib\Release</LibraryPath>
   </PropertyGroup>
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
+  </PropertyGroup>
+  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <VcpkgUseStatic>true</VcpkgUseStatic>
+    <VcpkgUseMD>true</VcpkgUseMD>
+  </PropertyGroup>
+  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <VcpkgUseStatic>true</VcpkgUseStatic>
+    <VcpkgUseMD>true</VcpkgUseMD>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -86,18 +97,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpp20</LanguageStandard>
-    </ClCompile>
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="config.h" />
-    <ClInclude Include="custom_iterators.h" />
-    <ClInclude Include="log.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="search.h" />
-    <ClInclude Include="shell.h" />
-    <ClInclude Include="types.h" />
+    <ClInclude Include="src\config.h" />
+    <ClInclude Include="src\custom_iterators.h" />
+    <ClInclude Include="src\log.h" />
+    <ClInclude Include="src\shell.h" />
+    <ClInclude Include="src\types.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="find-directory.rc" />

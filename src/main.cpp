@@ -12,16 +12,20 @@
 // TODO: copy project name/path to the clipboard (for the purpose
 //  of file transfer tool)
 
+// Fix wxWidgets and linking on windows.
+#pragma comment(lib, "comctl32")
+#pragma comment(lib, "Rpcrt4")
+
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <future>
 #include <regex>
-#include <windows.h>
 
 // wxWidgets is full of non-secure strcpy
 #pragma warning(push)
 #pragma warning(disable : 4996)
+#define wxUSE_SOCKETS 0
 #include <wx/aboutdlg.h>
 #include <wx/activityindicator.h>
 #include <wx/listctrl.h>
@@ -30,6 +34,11 @@
 #include <wx/valnum.h>
 #include <wx/wx.h>
 #pragma warning(pop)
+
+// Lean and mean prevents winsock version clash
+// between wxWidgets and Windows.h.
+// #define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 #include "config.h"
 #include "log.h"
@@ -102,17 +111,7 @@ EscapeForRegularExpression(const std::string& s)
   }
 }
 
-// used for directory_iterator and recursive_directory_iterator
-// template <class T>
-// Strings UnrollIterator(T iterator) {
-//  Strings s;
-//  for (const std::filesystem::directory_path_entry& elem : iterator) {
-//    s.push_back(elem.path().generic_string());
-//  }
-//  return s;
-//}
-
-class cFrame
+class Frame
   : public wxFrame
   , public wxThreadHelper
 {
@@ -125,6 +124,7 @@ private:
   wxListView* search_results;
   wxButton* search_button;
   wxStaticText* results_counter_label;
+  // FUTURE: wheel control to show progress on long searches.
   // wxActivityIndicator* activity_indicator;
 
   int m_value_recursion_depth; // used for validator
@@ -136,7 +136,7 @@ private:
   int search_results_index;
 
 public:
-  cFrame()
+  Frame(const wxString& default_ptrn)
     : wxFrame(nullptr,
               wxID_ANY,
               "Find Directory With Regex",
@@ -262,26 +262,24 @@ public:
     SetAcceleratorTable(wxAcceleratorTable(1, &k1));
 
     // Bind Events
+    Bind(wxEVT_COMMAND_MENU_SELECTED, &Frame::OnClose, this, wxID_EXIT);
+    Bind(wxEVT_COMMAND_MENU_SELECTED, &Frame::OnSave, this, wxID_SAVE);
+    Bind(wxEVT_COMMAND_MENU_SELECTED, &Frame::OnHelp, this, wxID_HELP);
+    Bind(wxEVT_COMMAND_MENU_SELECTED, &Frame::OnEdit, this, wxID_EDIT);
     Bind(
-      wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnClose, this, wxID_EXIT);
-    Bind(wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnSave, this, wxID_SAVE);
-    Bind(wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnHelp, this, wxID_HELP);
-    Bind(wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnEdit, this, wxID_EDIT);
-    Bind(
-      wxEVT_COMMAND_MENU_SELECTED, &cFrame::OnAbout, this, wxID_ABOUT);
-    search_button->Bind(wxEVT_BUTTON, &cFrame::OnSearch, this);
-    regex_pattern_entry->Bind(
-      wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
+      wxEVT_COMMAND_MENU_SELECTED, &Frame::OnAbout, this, wxID_ABOUT);
+    search_button->Bind(wxEVT_BUTTON, &Frame::OnSearch, this);
+    regex_pattern_entry->Bind(wxEVT_TEXT_ENTER, &Frame::OnSearch, this);
     directory_path_entry->Bind(
-      wxEVT_TEXT_ENTER, &cFrame::OnSearch, this);
+      wxEVT_TEXT_ENTER, &Frame::OnSearch, this);
     text_match_checkbox->Bind(
-      wxEVT_CHECKBOX, &cFrame::OnOptionsText, this);
+      wxEVT_CHECKBOX, &Frame::OnOptionsText, this);
     recursive_checkbox->Bind(
-      wxEVT_CHECKBOX, &cFrame::OnOptionsRecursion, this);
+      wxEVT_CHECKBOX, &Frame::OnOptionsRecursion, this);
     recursive_depth->Bind(
-      wxEVT_CHECKBOX, &cFrame::OnOptionsRecursionDepth, this);
+      wxEVT_CHECKBOX, &Frame::OnOptionsRecursionDepth, this);
     search_results->Bind(
-      wxEVT_LIST_ITEM_SELECTED, &cFrame::OnItem, this);
+      wxEVT_LIST_ITEM_SELECTED, &Frame::OnItem, this);
 
     // Handle and display messages to text control widget sent from
     // outside GUI thread
@@ -311,6 +309,10 @@ public:
           break;
       }
     });
+
+    if (!default_ptrn.empty()) {
+      regex_pattern_entry->SetValue(default_ptrn);
+    }
   }
 
   void OnOptionsText(wxCommandEvent& event)
@@ -356,11 +358,16 @@ public:
     // function call
 
     // Check to see if the path exists with a timeout
-    std::future<bool> future =
-      std::async(std::filesystem::exists, search_directory_);
+    std::future<bool> future = std::async(
+      [](std::filesystem::path sd) {
+        return std::filesystem::exists(sd);
+      },
+      std::filesystem::path(search_directory_));
+
     SPDLOG_DEBUG("checking, please wait");
-    std::chrono::milliseconds span(1000);
-    if (future.wait_for(span) == std::future_status::ready) {
+
+    if (future.wait_for(std::chrono::milliseconds(1000)) ==
+        std::future_status::ready) {
       if (future.get()) {
         SPDLOG_DEBUG("The path does exist.");
       } else {
@@ -368,7 +375,7 @@ public:
         wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD);
         event->SetInt(message_code::search_finished);
         this->QueueEvent(event);
-        return (wxThread::ExitCode)0;
+        return static_cast<wxThread::ExitCode>(0);
       }
     } else {
       wxLogError("Couldn't access the path in a reasonable amount of "
@@ -376,7 +383,7 @@ public:
       wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD);
       event->SetInt(message_code::search_finished);
       this->QueueEvent(event);
-      return (wxThread::ExitCode)0;
+      return static_cast<wxThread::ExitCode>(0);
     }
 
     try {
@@ -419,8 +426,9 @@ public:
         event->SetInt(message_code::search_lump_results);
         event->SetPayload<Strings>(matches);
         this->QueueEvent(event);
-      } else { // no recursion, only search the folder names in the
-               // directory
+      } else {
+        // no recursion, only search the folder names in the
+        // directory
         std::regex r(search_pattern_, std::regex_constants::icase);
         std::smatch m;
         for (auto const& entry :
@@ -436,9 +444,10 @@ public:
           }
         }
       }
-      settings->AddBookmark(
-        search_directory_); // add searchpath to dropdown
+      // add searchpath to dropdown
+      settings->AddBookmark(search_directory_);
       // settings->Save();  // I do not want to save settings
+
     } catch (std::filesystem::filesystem_error& e) {
       // logging is thread safe as 2009
       // https://wxwidgets.blogspot.com/2009/07/blogging-about-logging.html
@@ -450,7 +459,7 @@ public:
     wxThreadEvent* event = new wxThreadEvent(wxEVT_THREAD);
     event->SetInt(message_code::search_finished);
     this->QueueEvent(event);
-    return (wxThread::ExitCode)0;
+    return static_cast<wxThread::ExitCode>(0);
   }
 
   void OnSearch(wxCommandEvent& event)
@@ -628,7 +637,7 @@ public:
 class cApp : public wxApp
 {
 public:
-  cFrame* frame_ = nullptr;
+  Frame* frame = nullptr;
   cApp(){};
   ~cApp(){};
 
@@ -639,8 +648,16 @@ public:
     // application. It doesn't have file write permission when this
     // application is started from the working directory of natlink.
     SetUpLogging();
-    frame_ = new cFrame();
-    frame_->Show();
+
+    // Parse CMD line options.
+    const auto arg_count = wxTheApp->argc;
+    spdlog::debug("argument count: {}", arg_count);
+
+    const wxString default_ptrn =
+      arg_count > 1 ? wxTheApp->argv[2] : wxString("");
+
+    frame = new Frame(default_ptrn);
+    frame->Show();
     return true;
   }
   virtual int OnExit()

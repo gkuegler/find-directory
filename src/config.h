@@ -5,7 +5,7 @@
 #include <set>
 #include <string>
 #define TOML11_PRESERVE_COMMENTS_BY_DEFAULT
-#include <toml.hpp>
+#include "toml.hpp"
 #include <vector>
 
 #include "log.h"
@@ -29,7 +29,8 @@ std::string
 GetFullPath(std::string filename)
 {
   char full_path[MAXIMUM_FILE_PATH];
-  auto n_char = GetModuleFileNameA(nullptr, full_path, MAXIMUM_FILE_PATH);
+  auto n_char =
+    GetModuleFileNameA(nullptr, full_path, MAXIMUM_FILE_PATH);
   if (n_char != 0 && n_char != MAXIMUM_FILE_PATH) {
     std::filesystem::path path(full_path);
     auto file_path = path.parent_path().string() + "\\" + filename;
@@ -59,7 +60,8 @@ public:
   Settings() = delete;
   /**
    * Loads toml user data into config class.
-   * Will throw detailed errors from toml library if any of the following occur
+   * Will throw detailed errors from toml library if any of the
+   * following occur
    *   - std::runtime_error - failed to open file
    *   - toml::syntax_error - failed to parse file into toml object
    *   - toml::type_error - failed conversion from 'toml::find'
@@ -67,7 +69,8 @@ public:
    */
   Settings(std::string filename, bool default_construct = false)
   {
-    file_path_ = GetFullPath(filename); // prefix with executable directory
+    file_path_ =
+      GetFullPath(filename); // prefix with executable directory
 
     if (default_construct) {
       // Return default constructed settings with a filename.
@@ -75,9 +78,11 @@ public:
       return;
     } else {
       // Parse the main file
-      const auto data = toml::parse<toml::preserve_comments>(file_path_);
+      const auto data =
+        toml::parse<toml::preserve_comments>(file_path_);
 
-      exit_on_search = toml::find_or<bool>(data, "exit_on_search", true);
+      exit_on_search =
+        toml::find_or<bool>(data, "exit_on_search", true);
       use_text = toml::find_or<bool>(data, "use_text", false);
       use_recursion = toml::find_or<bool>(data, "use_recursion", false);
       recursion_depth = toml::find_or<int>(data, "recursion_depth", 0);
@@ -92,7 +97,8 @@ public:
   /**
    * Save current user data to disk.
    * Builds a toml object.
-   * Uses toml supplied serializer via ostream operators to write to file.
+   * Uses toml supplied serializer via ostream operators to write to
+   * file.
    */
   void Save()
   {
@@ -134,27 +140,28 @@ LoadFromFile(std::string filename)
     // return a successfully parsed and validated config file
     return ConfigReturn{ true, "", Settings(filename, false) };
   } catch (const toml::syntax_error& ex) {
-    err_msg = std::format(
-      "Syntax error in toml file: \"{}\"\nSee error message below for hints "
-      "on how to fix.\n{}",
-      filename,
-      ex.what());
-  } catch (const toml::type_error& ex) {
-    err_msg = std::format("Incorrect type when parsing toml file \"{}\".\n\n{}",
+    err_msg = std::format("Syntax error in toml file: \"{}\"\nSee "
+                          "error message below for hints "
+                          "on how to fix.\n{}",
                           filename,
                           ex.what());
+  } catch (const toml::type_error& ex) {
+    err_msg =
+      std::format("Incorrect type when parsing toml file \"{}\".\n\n{}",
+                  filename,
+                  ex.what());
   } catch (const std::out_of_range& ex) {
     err_msg = std::format(
       "Missing data in toml file \"{}\".\n\n{}", filename, ex.what());
   } catch (const std::runtime_error& ex) {
     // err_msg = std::format("Failed to open \"{}\"", filename);
-    //  I want to ignore when the file was missing and return default blank
-    //  config
+    //  I want to ignore when the file was missing and return default
+    //  blank config
     return ConfigReturn{ true, err_msg, Settings(filename, true) };
   } catch (...) {
-    err_msg = std::format(
-      "Exception has gone unhandled loading \"{}\" and verifying values.",
-      filename);
+    err_msg = std::format("Exception has gone unhandled loading \"{}\" "
+                          "and verifying values.",
+                          filename);
   }
   // return a default config object with a message explaining failure
   return ConfigReturn{ false, err_msg, Settings(filename, true) };
