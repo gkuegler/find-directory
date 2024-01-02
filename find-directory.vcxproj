@@ -102,10 +102,15 @@
   <ItemGroup>
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\config.h" />
-    <ClInclude Include="src\custom_iterators.h" />
     <ClInclude Include="src\log.h" />
     <ClInclude Include="src\shell.h" />
     <ClInclude Include="src\types.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="find-directory.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="resources\find_dir_256x256_yzU_icon.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

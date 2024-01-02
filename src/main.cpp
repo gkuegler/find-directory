@@ -45,7 +45,7 @@
 
 const wxString MY_APP_VERSION_STRING = "1.3";
 const wxString MY_APP_DATE = __DATE__;
-const constexpr int default_app_width = 500;
+const constexpr int default_app_width = 550;
 const constexpr int default_app_height = 800;
 
 wxPoint
@@ -197,8 +197,8 @@ public:
       new wxStaticText(panel, wxID_ANY, "search pattern:");
     auto directory_path_entry_label =
       new wxStaticText(panel, wxID_ANY, "directory:");
-    auto recursion_depth_label =
-      new wxStaticText(panel, wxID_ANY, "0 = full recursion depth");
+    auto recursion_depth_label = new wxStaticText(
+      panel, wxID_ANY, "0 = unlimited recursion depth");
 
     regex_pattern_entry = new wxTextCtrl(panel,
                                          wxID_ANY,
